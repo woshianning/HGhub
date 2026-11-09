@@ -13,7 +13,8 @@ pub const FIXED: [(&str, &str); 2] = [
     ("固定线路 2", "https://huangguoai.ai"),
 ];
 
-const PUBLISH_PAGE: &str = "https://huangguoai.pages.dev/";
+//const PUBLISH_PAGE: &str = "https://huangguoai.pages.dev/";
+const PUBLISH_PAGE: &str = "https://huang-guo.pages.dev/"
 /// 镜像列表上限（子域 × 域名是笛卡尔积，界面只展示这么多）
 const MIRROR_MAX: usize = 60;
 /// 单条线路探测超时
