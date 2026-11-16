@@ -7,3 +7,8 @@
 *.icns binary
 *.woff2 binary
 pnpm-lock.yaml -text
+
+# Windows 脚本使用 CRLF，避免 cmd.exe 解析 bat 时出错
+*.bat -text
+*.cmd -text
+*.ps1 text eol=crlf

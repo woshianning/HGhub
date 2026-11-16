@@ -50,13 +50,32 @@ HGhub 起源于个人对 Tauri 2 和移动端开发的学习与尝试。感谢�
 src/                    界面、交互、状态管理与组件
 src-tauri/              原生能力与 Rust 实现
 scripts/                开发、构建与验证脚本
+scripts/windows/        Windows 自检、构建与开发脚本
 tests/                  本地测试页面与回归用例
 docs/                   技术说明与维护记录
 ```
 
+## Windows 构建与运行
+
+本仓库补齐了 Windows 的打包与构建路径：新增 `src-tauri/tauri.windows.conf.json`
+（限定 NSIS、中文安装界面、当前用户安装、内嵌 WebView2 引导）、一键构建脚本、构建自检、
+Windows CI 与文档；`bundle.targets` 收敛为 `"all"`，各平台实际格式由平台配置决定。
+完整步骤、环境要求与常见问题见 **[docs/windows.md](docs/windows.md)**。
+
+最短路径（Windows PowerShell，需要 Node 22 / pnpm 10 / Rust MSVC / VS 生成工具）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\check.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\build.ps1
+```
+
+也可以直接双击根目录的 `build-windows.bat`。产物在 `dist-windows\`：
+`HGhub_<版本>_x64-setup.exe`（NSIS 安装包）与 `HGhub_<版本>_x64_portable.zip`（便携版）。
+
 ## 本地开发
 
 基础环境：Node.js 22、pnpm 10、Rust 1.90 或更高版本，以及目标平台所需的 Tauri 开发环境。
+Windows 请先按 [docs/windows.md](docs/windows.md) 安装 MSVC 生成工具与 WebView2。
 
 ```bash
 pnpm install --frozen-lockfile
@@ -67,6 +86,7 @@ pnpm build           # 类型检查与前端构建
 
 各平台配置位于 `src-tauri/tauri*.conf.json`。移动端及 macOS 开发需要相应平台的 SDK 和工具链。
 
+- Windows 快捷命令：`pnpm win:dev`、`pnpm win:build`、`pnpm win:build:exe`，以及 `pnpm typecheck`。
 - exFAT 等不支持符号链接的文件系统需保留 `.npmrc` 中的 `node-linker=hoisted`；部分原生构建步骤仍可能受文件系统限制。
 - 依赖安装脚本的允许列表见 `package.json` 与 `pnpm-workspace.yaml`。
 - 内容处理、网络安全边界与本地回归说明见[客户端内容与网络安全](docs/security.md)。

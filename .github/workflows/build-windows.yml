@@ -1,0 +1,87 @@
+name: Build Windows
+
+# 手动触发或打 v* 标签时，在 GitHub 托管的 windows-latest 上构建
+# NSIS 安装包与便携 zip。发布 Release 由 release.yml 负责，这里只出产物。
+on:
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: "安装包格式"
+        type: choice
+        options: [nsis, msi]
+        default: nsis
+  push:
+    branches: ["windows"]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+jobs:
+  windows:
+    name: Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 对齐版本号
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          node -e "const fs=require('fs');for(const p of ['src-tauri/tauri.conf.json','package.json']){const j=JSON.parse(fs.readFileSync(p));j.version=process.argv[1];fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}" "$V"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建安装包
+        run: pnpm tauri build --bundles ${{ github.event.inputs.bundle || 'nsis' }}
+
+      - name: 收集产物（安装包 + 便携包）
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          if (Test-Path "src-tauri/target/release/bundle/nsis") {
+            Copy-Item "src-tauri/target/release/bundle/nsis/*.exe" artifacts/
+          }
+          if (Test-Path "src-tauri/target/release/bundle/msi") {
+            Copy-Item "src-tauri/target/release/bundle/msi/*.msi" artifacts/
+          }
+          $exe = @(
+            "src-tauri/target/release/HGhub.exe",
+            "src-tauri/target/release/huangguo-client.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) {
+            $exe = (Get-ChildItem "src-tauri/target/release" -Filter *.exe |
+              Sort-Object Length -Descending | Select-Object -First 1).FullName
+          }
+          if (-not $exe) { Write-Error "release executable not found"; exit 1 }
+          Copy-Item $exe "artifacts/HGhub.exe"
+          Compress-Archive -Path "artifacts/HGhub.exe" -DestinationPath "artifacts/HGhub_${v}_x64_portable.zip" -Force
+          Remove-Item "artifacts/HGhub.exe"
+          Get-ChildItem artifacts | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HGhub-windows-${{ github.event.inputs.bundle || 'nsis' }}
+          path: artifacts/*
+          if-no-files-found: error
